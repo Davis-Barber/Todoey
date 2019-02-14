@@ -7,11 +7,13 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
     
-    var categories = [Category]()
+    let realm = try! Realm()
+    
+    var categories: Results<Category>!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,9 +35,7 @@ class CategoryViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "categoryCell", for: indexPath)
-        let newCategory: Category = categories[indexPath.row]
-        
-        cell.textLabel?.text = newCategory.name
+        cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories added yet."
         
         return cell
     }
@@ -46,17 +46,19 @@ class CategoryViewController: UITableViewController {
     }
     
     // MARK: - Model Manipulation Methods
-    func saveCategories() {
-        Database.saveContext()
+    func save(category: Category) {
+        do {
+            try realm.write {
+                realm.add(category)
+            }
+        } catch  {
+            print("Error saving category \(error)")
+        }
         tableView.reloadData()
     }
     
     func loadCategories() {
-        do {
-            categories = try Database.getContext().fetch(Category.fetchRequest())
-        } catch {
-            print("Error fetching data from context \(error)")
-        }
+        categories = realm.objects(Category.self)
         tableView.reloadData()
     }
 
@@ -66,7 +68,7 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! ToDoListViewController
         
         if let indexPath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedCategory = categories[indexPath.row]
+            destinationVC.selectedCategory = categories?[indexPath.row]
         }
     }
  
@@ -76,10 +78,9 @@ class CategoryViewController: UITableViewController {
         
         let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
             //what will happen once the user clicks the add item button on our UIAlert
-            let newCategory = Category(context: Database.getContext())
+            let newCategory = Category()
             newCategory.name = textfield.text!
-            self.categories.append(newCategory)
-            self.saveCategories()
+            self.save(category: newCategory)
         }
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create new Category"
